@@ -38,7 +38,8 @@ Autor: Persona 3 (UI / Gráficas / Integración) - Solo define el contrato.
 from __future__ import annotations
 
 from config import SimulationParameters, SimulationState, SimulationPhase
-
+from phase3_4 import simulate_phase3 as _p3_impl
+from phase3_4 import simulate_phase4 as _p4_impl
 
 def simulate_phase1(params: SimulationParameters) -> SimulationState:
     """
@@ -187,10 +188,7 @@ def simulate_phase3(state: SimulationState) -> SimulationState:
     Nota: Esta función es un stub. Persona 2 debe reemplazar el
     cuerpo con la física real. NO debe ser implementada por Persona 3.
     """
-    raise NotImplementedError(
-        "simulate_phase3 debe ser implementada por Persona 2. "
-        "Este es solo el contrato de la interfaz."
-    )
+    return _p3_impl(state)
 
 
 def simulate_phase4(state: SimulationState) -> SimulationState:
@@ -218,7 +216,4 @@ def simulate_phase4(state: SimulationState) -> SimulationState:
     Nota: Esta función es un stub. Persona 2 debe reemplazar el
     cuerpo con la física real. NO debe ser implementada por Persona 3.
     """
-    raise NotImplementedError(
-        "simulate_phase4 debe ser implementada por Persona 2. "
-        "Este es solo el contrato de la interfaz."
-    )
+    return _p4_impl(state)
