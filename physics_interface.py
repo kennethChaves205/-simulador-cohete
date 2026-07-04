@@ -46,57 +46,120 @@ def simulate_phase1(params: SimulationParameters) -> SimulationState:
 
     Responsable: Persona 1.
 
-    Debe calcular el estado inicial del cohete mientras el motor está
-    activo (empuje, consumo de combustible, aceleración resultante, etc.)
-    y devolver el primer SimulationState de la simulación (t=0 o t=Δt).
+    Integra numéricamente (Euler) el movimiento del cohete mientras el
+    motor está activo. La masa disminuye conforme se consume el combustible.
+    Recorre TODOS los pasos de la fase y devuelve el estado final listo
+    para que el controlador entre al bucle de la fase 2.
 
-    Parameters
-    ----------
-    params : SimulationParameters
-        Parámetros configurados por el usuario en la interfaz.
-
-    Returns
-    -------
-    SimulationState
-        Estado del cohete al finalizar el primer paso de la fase de
-        propulsión, con phase=SimulationPhase.PHASE_1_PROPULSION.
-
-    Nota: Esta función es un stub. Persona 1 debe reemplazar el
-    cuerpo con la física real. NO debe ser implementada por Persona 3.
+    Física aplicada
+    ---------------
+    - Fuerza neta:  F_neta = thrust - current_mass * gravity
+    - Aceleración:  a = F_neta / current_mass
+    - Euler:        v_new = v + a * dt
+                    y_new = y + v * dt   (velocidad ANTERIOR, orden correcto)
+    - G's:          g_force = |a| / gravity
+    - Consumo de masa: se reparte el combustible uniformemente en el tiempo
+                       de encendido → dm/dt = fuel_mass / engine_duration
     """
-    raise NotImplementedError(
-        "simulate_phase1 debe ser implementada por Persona 1. "
-        "Este es solo el contrato de la interfaz."
+    dt = params.time_step
+    g = params.gravity
+
+    # Tasa de consumo de combustible (kg por segundo)
+    mass_flow = params.fuel_mass / params.engine_duration if params.engine_duration > 0 else 0.0
+
+    # Estado inicial
+    state = SimulationState(
+        time=0.0,
+        phase=SimulationPhase.PHASE_1_PROPULSION,
+        height=params.initial_height,
+        velocity=0.0,
+        acceleration=0.0,
+        current_mass=params.mass,
     )
+
+    # Número de pasos que dura el motor
+    n_steps = max(1, int(round(params.engine_duration / dt)))
+
+    for _ in range(n_steps):
+        # Masa actual (nunca menor que la masa seca)
+        dry_mass = params.mass - params.fuel_mass
+        state.current_mass = max(state.current_mass - mass_flow * dt, dry_mass)
+
+        # Aceleración neta: empuje hacia arriba, peso hacia abajo
+        f_neta = params.thrust - state.current_mass * g
+        state.acceleration = f_neta / state.current_mass
+
+        # Euler: usar velocidad y posición ANTERIORES para el paso
+        new_velocity = state.velocity + state.acceleration * dt
+        new_height = state.height + state.velocity * dt  # velocidad anterior
+
+        state.velocity = new_velocity
+        state.height = max(new_height, 0.0)  # el cohete no puede bajar del suelo
+        state.time += dt
+        state.g_force = abs(state.acceleration) / g
+
+        # Registrar este paso en el historial para las gráficas
+        state.history.append(state)
+
+    # Al terminar el motor, transición a vuelo libre
+    state.phase = SimulationPhase.PHASE_2_FREE_FLIGHT
+    return state
 
 
 def simulate_phase2(state: SimulationState) -> SimulationState:
     """
-    Fase 2: Vuelo libre (motor apagado, ascenso/descenso balístico).
+    Fase 2: Vuelo libre (motor apagado, ascenso balístico hasta apogeo).
 
     Responsable: Persona 1.
 
-    Recibe el estado actual y devuelve el siguiente estado (un paso
-    de tiempo Δt más adelante), actualizando altura, velocidad y
-    aceleración bajo los efectos de gravedad y arrastre.
+    El controlador llama esta función UNA VEZ por paso de tiempo (Δt).
+    Solo actúa la gravedad: a = -g (constante).
 
-    Parameters
-    ----------
-    state : SimulationState
-        Estado actual del cohete.
+    La fase termina cuando la velocidad cruza cero (apogeo) o cuando
+    la altura cae a cero (caso borde: cohete muy lento al apagar motor).
+    En ambos casos se transiciona a PHASE_3_DESCENT para que Persona 2
+    tome el control del descenso con paracaídas.
 
-    Returns
-    -------
-    SimulationState
-        Siguiente estado, con phase=SimulationPhase.PHASE_2_FREE_FLIGHT.
-
-    Nota: Esta función es un stub. Persona 1 debe reemplazar el
-    cuerpo con la física real. NO debe ser implementada por Persona 3.
+    Física aplicada
+    ---------------
+    - Aceleración:  a = -g   (solo gravedad, sin empuje ni arrastre)
+    - Euler:        v_new = v + a * dt
+                    y_new = y + v * dt   (velocidad ANTERIOR)
+    - G's:          g_force = |a| / g = 1.0  (en vuelo libre siempre es 1 g)
     """
-    raise NotImplementedError(
-        "simulate_phase2 debe ser implementada por Persona 1. "
-        "Este es solo el contrato de la interfaz."
-    )
+    # Leer Δt del historial: diferencia entre los dos últimos tiempos registrados.
+    # Si el historial tiene al menos 2 puntos usamos esa diferencia; si no,
+    # usamos 0.1 s como valor por defecto (no debería ocurrir en uso normal).
+    history_times = state.history.time
+    if len(history_times) >= 2:
+        dt = history_times[-1] - history_times[-2]
+    else:
+        dt = 0.1
+
+    g = 9.81  # m/s² — constante estándar
+
+    # Aceleración en vuelo libre: solo gravedad
+    state.acceleration = -g
+    state.g_force = abs(state.acceleration) / g  # = 1.0 siempre en fase 2
+
+    # Euler: posición con velocidad ANTERIOR, luego actualizar velocidad
+    new_height = state.height + state.velocity * dt
+    new_velocity = state.velocity + state.acceleration * dt
+
+    state.height = max(new_height, 0.0)
+    state.velocity = new_velocity
+    state.time += dt
+
+    # Registrar este paso
+    state.history.append(state)
+
+    # Condición de transición a fase 3:
+    #   - Apogeo: velocidad cruza de positiva a negativa (o llega a cero)
+    #   - Toca suelo (caso borde)
+    if state.velocity <= 0.0 or state.height <= 0.0:
+        state.phase = SimulationPhase.PHASE_3_DESCENT
+
+    return state
 
 
 def simulate_phase3(state: SimulationState) -> SimulationState:
