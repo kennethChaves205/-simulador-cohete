@@ -187,21 +187,32 @@ class SimulationController:
         Persona 1 y Persona 2 son responsables de, dentro de sus
         funciones, actualizar `state.phase` al valor correspondiente
         cuando corresponda avanzar a la siguiente etapa.
+
+        NOTA (corrección Av2 -> Informe Final):
+        simulate_phase1 ya deja state.phase = PHASE_2_FREE_FLIGHT antes de
+        que este método reciba el estado por primera vez (se llama una
+        sola vez, fuera del bucle, en _run_loop). El mapeo anterior
+        comparaba contra IDLE/PHASE_1_PROPULSION para decidir llamar a
+        simulate_phase2, por lo que esa condición nunca se cumplía y
+        simulate_phase2 quedaba como código muerto: el vuelo libre nunca
+        se ejecutaba y se saltaba directo a simulate_phase3. El mapeo
+        correcto compara cada función contra la fase que ELLA MISMA debe
+        seguir procesando en cada paso, no contra la fase anterior.
         """
-        if state.phase in (
-                SimulationPhase.IDLE,
-                SimulationPhase.PHASE_1_PROPULSION,
-        ):
-            return simulate_phase2(state)
         if state.phase == SimulationPhase.PHASE_2_FREE_FLIGHT:
-            return simulate_phase3(state)
+            return simulate_phase2(state)
         if state.phase == SimulationPhase.PHASE_3_DESCENT:
-            return simulate_phase4(state)
+            return simulate_phase3(state)
         if state.phase == SimulationPhase.PHASE_4_IMPACT:
+            state = simulate_phase4(state)
+            # simulate_phase4 calcula el impacto y deja phase=PHASE_4_IMPACT;
+            # es este método el que decide que, tras calcular el impacto,
+            # la simulación ha terminado.
             state.phase = SimulationPhase.FINISHED
             return state
 
-        # Fallback defensivo: si la fase no es reconocida, se detiene.
+        # Fallback defensivo: si la fase no es reconocida (o ya es
+        # FINISHED), se detiene.
         state.phase = SimulationPhase.FINISHED
         return state
 

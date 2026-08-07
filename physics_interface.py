@@ -56,8 +56,14 @@ def simulate_phase1(params: SimulationParameters) -> SimulationState:
     ---------------
     - Fuerza neta:  F_neta = thrust - current_mass * gravity
     - Aceleración:  a = F_neta / current_mass
-    - Euler:        v_new = v + a * dt
-                    y_new = y + v * dt   (velocidad ANTERIOR, orden correcto)
+    - Euler semi-implícito (Euler-Cromer): primero se actualiza la
+      velocidad con la aceleración del paso, y LUEGO se actualiza la
+      posición con la velocidad ya actualizada (v_new), no con la
+      anterior. Este orden es el que hace estable el método frente al
+      Euler explícito puro, sobre todo una vez que fase 3 (paracaídas)
+      encadena su propia integración a partir de este estado.
+        v_new = v + a * dt
+        y_new = y + v_new * dt
     - G's:          g_force = |a| / gravity
     - Consumo de masa: se reparte el combustible uniformemente en el tiempo
                        de encendido → dm/dt = fuel_mass / engine_duration
@@ -90,9 +96,10 @@ def simulate_phase1(params: SimulationParameters) -> SimulationState:
         f_neta = params.thrust - state.current_mass * g
         state.acceleration = f_neta / state.current_mass
 
-        # Euler: usar velocidad y posición ANTERIORES para el paso
+        # Euler semi-implícito: velocidad primero, posición con la
+        # velocidad YA actualizada (no con la anterior).
         new_velocity = state.velocity + state.acceleration * dt
-        new_height = state.height + state.velocity * dt  # velocidad anterior
+        new_height = state.height + new_velocity * dt
 
         state.velocity = new_velocity
         state.height = max(new_height, 0.0)  # el cohete no puede bajar del suelo
@@ -124,8 +131,8 @@ def simulate_phase2(state: SimulationState) -> SimulationState:
     Física aplicada
     ---------------
     - Aceleración:  a = -g   (solo gravedad, sin empuje ni arrastre)
-    - Euler:        v_new = v + a * dt
-                    y_new = y + v * dt   (velocidad ANTERIOR)
+    - Euler semi-implícito: v_new = v + a * dt ; y_new = y + v_new * dt
+      (velocidad NUEVA, mismo criterio de estabilidad usado en fase 1).
     - G's:          g_force = |a| / g = 1.0  (en vuelo libre siempre es 1 g)
     """
     # Leer Δt del historial: diferencia entre los dos últimos tiempos registrados.
@@ -143,12 +150,13 @@ def simulate_phase2(state: SimulationState) -> SimulationState:
     state.acceleration = -g
     state.g_force = abs(state.acceleration) / g  # = 1.0 siempre en fase 2
 
-    # Euler: posición con velocidad ANTERIOR, luego actualizar velocidad
-    new_height = state.height + state.velocity * dt
+    # Euler semi-implícito: velocidad primero, posición con la
+    # velocidad YA actualizada.
     new_velocity = state.velocity + state.acceleration * dt
+    new_height = state.height + new_velocity * dt
 
-    state.height = max(new_height, 0.0)
     state.velocity = new_velocity
+    state.height = max(new_height, 0.0)
     state.time += dt
 
     # Registrar este paso

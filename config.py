@@ -42,7 +42,9 @@ class SimulationParameters:
     initial_height: float = 0.0        # m
     mass: float = 50.0                 # kg (masa total inicial, incluyendo combustible)
     fuel_mass: float = 20.0            # kg
-    time_step: float = 0.1             # s (Δt)
+    time_step: float = 0.01            # s (Δt) — bajado de 0.1 a 0.01:
+                                        # con 0.1 el Euler diverge en fase 3
+                                        # (arrastre cuadrático del paracaídas)
     gravity: float = 9.81              # m/s^2
     thrust: float = 2000.0             # N (empuje del motor)
     engine_duration: float = 5.0       # s (duración del motor encendido)

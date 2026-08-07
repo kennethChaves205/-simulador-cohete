@@ -29,6 +29,7 @@ import tkinter as tk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
+import theme
 from config import SimulationHistory
 
 
@@ -37,17 +38,21 @@ class PlotManager:
     Administra una figura de Matplotlib con 7 subplots embebida en un
     frame de Tkinter, y expone un método `update()` para refrescarla
     en tiempo real conforme avanza la simulación.
+
+    Los colores y tipografía se toman de theme.py para que las gráficas
+    combinen con el resto de la interfaz (tarjetas blancas, paleta
+    indigo/naranja/verde en vez de los "tab:*" por defecto de Matplotlib).
     """
 
     _PLOT_SPECS: list[tuple[str, str, str]] = [
-        # (título, atributo de SimulationHistory, color)
-        ("Altura vs Tiempo", "height", "tab:blue"),
-        ("Velocidad vs Tiempo", "velocity", "tab:orange"),
-        ("Aceleración vs Tiempo", "acceleration", "tab:green"),
-        ("Energía Cinética vs Tiempo", "kinetic_energy", "tab:red"),
-        ("Energía Potencial vs Tiempo", "potential_energy", "tab:purple"),
-        ("Energía Total vs Tiempo", "total_energy", "tab:brown"),
-        ("G's vs Tiempo", "g_force", "tab:pink"),
+        # (título, atributo de SimulationHistory, clave de color en theme.PLOT_COLORS)
+        ("Altura vs Tiempo", "height", "height"),
+        ("Velocidad vs Tiempo", "velocity", "velocity"),
+        ("Aceleración vs Tiempo", "acceleration", "acceleration"),
+        ("Energía Cinética vs Tiempo", "kinetic_energy", "kinetic_energy"),
+        ("Energía Potencial vs Tiempo", "potential_energy", "potential_energy"),
+        ("Energía Total vs Tiempo", "total_energy", "total_energy"),
+        ("G's vs Tiempo", "g_force", "g_force"),
     ]
 
     def __init__(self, parent: tk.Widget) -> None:
@@ -60,7 +65,7 @@ class PlotManager:
         self._parent = parent
 
         # 7 gráficas en una grilla de 4 filas x 2 columnas (una celda vacía)
-        self._figure = Figure(figsize=(9, 11), dpi=90)
+        self._figure = Figure(figsize=(9, 11), dpi=90, facecolor=theme.PLOT_BG)
         self._axes = self._figure.subplots(nrows=4, ncols=2)
         self._axes_flat = self._axes.flatten()
 
@@ -68,17 +73,29 @@ class PlotManager:
         self._init_axes()
 
         self._canvas = FigureCanvasTkAgg(self._figure, master=self._parent)
+        self._canvas.get_tk_widget().configure(bg=theme.PLOT_BG, highlightthickness=0)
         self._canvas.draw()
         self._canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
     def _init_axes(self) -> None:
-        """Configura título, etiquetas y una línea vacía por cada subplot."""
-        for ax, (title, attr, color) in zip(self._axes_flat, self._PLOT_SPECS):
-            ax.set_title(title, fontsize=9)
-            ax.set_xlabel("Tiempo (s)", fontsize=7)
-            ax.tick_params(labelsize=7)
-            ax.grid(True, linestyle="--", alpha=0.4)
-            (line,) = ax.plot([], [], color=color, linewidth=1.5)
+        """Configura título, etiquetas y una línea vacía por cada subplot, con el look plano/moderno."""
+        for ax, (title, attr, color_key) in zip(self._axes_flat, self._PLOT_SPECS):
+            color = theme.PLOT_COLORS[color_key]
+
+            ax.set_facecolor(theme.PLOT_BG)
+            ax.set_title(title, fontsize=9, fontweight="bold", color=theme.TEXT_PRIMARY, pad=8)
+            ax.set_xlabel("Tiempo (s)", fontsize=7, color=theme.TEXT_SECONDARY)
+            ax.tick_params(labelsize=7, colors=theme.PLOT_AXIS_COLOR, length=0)
+            ax.grid(True, linestyle="-", linewidth=0.7, alpha=0.7, color=theme.PLOT_GRID_COLOR)
+
+            # Estilo "flat/web": sin caja completa, solo ejes inferior e izquierdo tenues.
+            for spine_name, spine in ax.spines.items():
+                if spine_name in ("top", "right"):
+                    spine.set_visible(False)
+                else:
+                    spine.set_color(theme.PLOT_GRID_COLOR)
+
+            (line,) = ax.plot([], [], color=color, linewidth=2.0, solid_capstyle="round")
             self._lines[attr] = line
 
         # La octava celda (4x2 = 8, solo usamos 7) se oculta.
