@@ -171,7 +171,9 @@ def simulate_phase2(state: SimulationState) -> SimulationState:
     return state
 
 
-def simulate_phase3(state: SimulationState) -> SimulationState:
+def simulate_phase3(
+    state: SimulationState, params: SimulationParameters | None = None
+) -> SimulationState:
     """
     Fase 3: Descenso.
 
@@ -187,19 +189,23 @@ def simulate_phase3(state: SimulationState) -> SimulationState:
     ----------
     state : SimulationState
         Estado actual del cohete.
+    params : Optional[SimulationParameters]
+        Parámetros configurados desde la interfaz (drag_coefficient,
+        cross_sectional_area, air_density, t_deploy). Si no se pasan
+        (p. ej. código legado que aún llama simulate_phase3(state)),
+        se usan los valores por defecto del paracaídas.
 
     Returns
     -------
     SimulationState
         Siguiente estado, con phase=SimulationPhase.PHASE_3_DESCENT.
-
-    Nota: Esta función es un stub. Persona 2 debe reemplazar el
-    cuerpo con la física real. NO debe ser implementada por Persona 3.
     """
-    return _p3_impl(state)
+    return _p3_impl(state, params)
 
 
-def simulate_phase4(state: SimulationState) -> SimulationState:
+def simulate_phase4(
+    state: SimulationState, params: SimulationParameters | None = None
+) -> SimulationState:
     """
     Fase 4: Impacto.
 
@@ -215,13 +221,14 @@ def simulate_phase4(state: SimulationState) -> SimulationState:
     ----------
     state : SimulationState
         Estado actual del cohete (justo antes o en el momento del impacto).
+    params : Optional[SimulationParameters]
+        Parámetros de la interfaz (no se usan directamente en el cálculo
+        de impacto hoy, pero se aceptan para mantener la misma firma que
+        simulate_phase3).
 
     Returns
     -------
     SimulationState
         Estado final del cohete.
-
-    Nota: Esta función es un stub. Persona 2 debe reemplazar el
-    cuerpo con la física real. NO debe ser implementada por Persona 3.
     """
-    return _p4_impl(state)
+    return _p4_impl(state, params)

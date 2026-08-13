@@ -217,9 +217,12 @@ class SimulationController:
         if state.phase == SimulationPhase.PHASE_2_FREE_FLIGHT:
             return simulate_phase2(state)
         if state.phase == SimulationPhase.PHASE_3_DESCENT:
-            return simulate_phase3(state)
+            # Se pasa self._params para que fase 3 use el Cd, área,
+            # densidad y t_deploy configurados en la interfaz en vez
+            # de valores fijos dentro de phase3_4.py.
+            return simulate_phase3(state, self._params)
         if state.phase == SimulationPhase.PHASE_4_IMPACT:
-            state = simulate_phase4(state)
+            state = simulate_phase4(state, self._params)
             # simulate_phase4 calcula el impacto y deja phase=PHASE_4_IMPACT;
             # es este método el que decide que, tras calcular el impacto,
             # la simulación ha terminado.

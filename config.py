@@ -48,9 +48,18 @@ class SimulationParameters:
     gravity: float = 9.81              # m/s^2
     thrust: float = 2000.0             # N (empuje del motor)
     engine_duration: float = 5.0       # s (duración del motor encendido)
-    drag_coefficient: float = 0.5      # adimensional
-    cross_sectional_area: float = 0.3  # m^2
+    # NOTA: fase 1 y 2 no usan arrastre, así que estos tres campos solo
+    # tienen efecto en fase 3 (paracaídas). Los valores por defecto
+    # corresponden a un paracaídas hemisférico real (no al cuerpo del
+    # cohete); con un Cd/área pequeños (p. ej. 0.5 / 0.3 m², típicos del
+    # fuselaje) la velocidad terminal sale absurdamente alta y la fuerza
+    # de impacto se dispara a cientos de g's.
+    drag_coefficient: float = 1.5      # adimensional (Cd del paracaídas ya desplegado)
+    cross_sectional_area: float = 8.0  # m^2 (área efectiva del paracaídas ya desplegado)
     air_density: float = 1.225         # kg/m^3
+    t_deploy: float = 1.5              # s (tiempo desde que inicia la fase 3 hasta
+                                        # que el paracaídas está completamente desplegado;
+                                        # antes de eso el cohete cae libre)
 
     def as_dict(self) -> dict:
         """Devuelve los parámetros como diccionario (útil para logging/debug)."""
@@ -65,6 +74,7 @@ class SimulationParameters:
             "drag_coefficient": self.drag_coefficient,
             "cross_sectional_area": self.cross_sectional_area,
             "air_density": self.air_density,
+            "t_deploy": self.t_deploy,
         }
 
 
@@ -103,6 +113,10 @@ class SimulationState:
 
     # Masa restante (puede variar si hay consumo de combustible)
     current_mass: float = 0.0
+
+    # Despliegue del paracaídas (Persona 2 / fase 3)
+    descent_start_time: float = -1.0   # marca de tiempo al entrar a fase 3 (-1 = aún no entra)
+    parachute_deployed: bool = False   # True una vez transcurrido t_deploy
 
     # Historial acumulado para graficar (listas paralelas por índice de tiempo)
     history: "SimulationHistory" = field(default_factory=lambda: SimulationHistory())

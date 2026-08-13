@@ -115,9 +115,10 @@ class RocketSimulatorApp:
         ("Gravedad", "gravity", 9.81, "m/s²"),
         ("Empuje", "thrust", 2000.0, "N"),
         ("Duración del motor", "engine_duration", 5.0, "s"),
-        ("Coeficiente de arrastre", "drag_coefficient", 0.5, ""),
-        ("Área transversal", "cross_sectional_area", 0.3, "m²"),
+        ("Coeficiente de arrastre (paracaídas)", "drag_coefficient", 1.5, ""),
+        ("Área del paracaídas", "cross_sectional_area", 8.0, "m²"),
         ("Densidad del aire", "air_density", 1.225, "kg/m³"),
+        ("Tiempo de despliegue del paracaídas", "t_deploy", 1.5, "s"),
     ]
 
     def __init__(self, root: tk.Tk) -> None:
