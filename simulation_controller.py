@@ -79,6 +79,12 @@ class SimulationController:
         # de Persona 1/2 aún no están implementadas o no marcan FINISHED.
         self._max_steps = 100_000
 
+        # Límite de frecuencia de refresco de UI/gráficas (ver _emit_state).
+        # 12 actualizaciones por segundo es fluido a la vista y le da
+        # tiempo de sobra a Matplotlib para redibujar entre una y otra.
+        self._min_ui_refresh_interval = 1.0 / 12
+        self._last_ui_refresh = 0.0
+
     # ------------------------------------------------------------------
     # API pública: controles de la simulación
     # ------------------------------------------------------------------
@@ -145,7 +151,16 @@ class SimulationController:
         """
         try:
             self._state = simulate_phase1(self._params)
-            self._emit_state()
+            # NOTA (corrección Informe Final): antes se llamaba aquí a
+            # self._emit_state(), que hace history.append(self._state).
+            # simulate_phase1 YA registró cada uno de sus pasos internos
+            # en el historial (incluido este último), así que volver a
+            # hacer append aquí creaba una marca de tiempo duplicada justo
+            # en el borde fase1 -> fase2. Esa duplicación es la que hacía
+            # que simulate_phase2 calculara dt=0 en su primer paso (ver
+            # nota en physics_interface.py) y la simulación se congelara.
+            # Aquí solo se notifica a la UI, sin volver a registrar.
+            self._notify_ui_only()
 
             steps = 0
             while (
@@ -217,6 +232,40 @@ class SimulationController:
         return state
 
     def _emit_state(self) -> None:
-        """Registra el estado en el historial y notifica a la UI/gráficas."""
+        """
+        Registra el estado en el historial y notifica a la UI/gráficas,
+        con un límite de frecuencia de refresco de pantalla independiente
+        del Δt físico.
+
+        Por qué existe el throttle
+        ---------------------------
+        Antes, cada paso de física (cada Δt, p. ej. cada 10 ms con
+        Δt=0.01) disparaba un redibujado completo de las 7 gráficas de
+        Matplotlib + la vista del cohete. Redibujar esas 7 gráficas tarda
+        bastante más que eso, así que las peticiones de redibujado se
+        acumulaban más rápido de lo que la interfaz lograba procesarlas:
+        la UI parecía "congelada" mientras el CPU quedaba al 100% tratando
+        de ponerse al día (esto se sumaba al bug de dt=0 corregido arriba;
+        una vez corregido ESE bug, este otro se vuelve visible porque la
+        simulación ya corre suficientes pasos como para saturar el
+        redibujado).
+
+        La física sigue corriendo a la resolución completa de Δt (se
+        registra CADA paso en el historial, así que las curvas de las
+        gráficas no pierden detalle); lo único que se limita es cuántas
+        veces por segundo se le pide a Tkinter/Matplotlib que redibuje.
+        """
         self._state.history.append(self._state)
+
+        is_final = self._state.phase == SimulationPhase.FINISHED
+        now = time.monotonic()
+        should_refresh_ui = is_final or (now - self._last_ui_refresh) >= self._min_ui_refresh_interval
+
+        if should_refresh_ui:
+            self._last_ui_refresh = now
+            self._on_state_update(self._state)
+
+    def _notify_ui_only(self) -> None:
+        """Notifica a la UI sin volver a registrar en el historial (ver nota más arriba)."""
+        self._last_ui_refresh = time.monotonic()
         self._on_state_update(self._state)

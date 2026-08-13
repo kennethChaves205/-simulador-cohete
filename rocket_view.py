@@ -25,16 +25,19 @@ from __future__ import annotations
 
 import tkinter as tk
 
+import theme
 from config import SimulationPhase, SimulationState
 
-# Colores por fase: (color de fondo de la etiqueta, texto, ícono corto)
-_PHASE_STYLE: dict[SimulationPhase, tuple[str, str, str]] = {
-    SimulationPhase.IDLE: ("#9e9e9e", "En espera", "•"),
-    SimulationPhase.PHASE_1_PROPULSION: ("#fb8c00", "Propulsión", "🔥"),
-    SimulationPhase.PHASE_2_FREE_FLIGHT: ("#1e88e5", "Vuelo libre", "↑"),
-    SimulationPhase.PHASE_3_DESCENT: ("#43a047", "Descenso", "🪂"),
-    SimulationPhase.PHASE_4_IMPACT: ("#e53935", "Impacto", "💥"),
-    SimulationPhase.FINISHED: ("#e53935", "Finalizado", "✔"),
+# Colores por fase: se reusan los mismos de theme.PHASE_COLORS / PHASE_LABELS
+# para que la badge de esta vista combine con la badge del encabezado de
+# ui.py, más un ícono corto por fase.
+_PHASE_ICONS: dict[SimulationPhase, str] = {
+    SimulationPhase.IDLE: "•",
+    SimulationPhase.PHASE_1_PROPULSION: "🔥",
+    SimulationPhase.PHASE_2_FREE_FLIGHT: "↑",
+    SimulationPhase.PHASE_3_DESCENT: "🪂",
+    SimulationPhase.PHASE_4_IMPACT: "💥",
+    SimulationPhase.FINISHED: "✔",
 }
 
 
@@ -56,22 +59,23 @@ class RocketView:
     def __init__(self, parent: tk.Widget) -> None:
         self._parent = parent
 
-        header = tk.Frame(parent)
+        header = tk.Frame(parent, bg=theme.CARD_BG)
         header.pack(side=tk.TOP, fill=tk.X, pady=(0, 4))
 
         self._phase_badge = tk.Label(
             header,
             text="●  En espera",
-            font=("Segoe UI", 11, "bold"),
+            font=(theme.FONT_FAMILY, 11, "bold"),
             fg="white",
-            bg="#9e9e9e",
+            bg=theme.PHASE_COLORS["IDLE"],
             padx=10,
             pady=4,
         )
         self._phase_badge.pack(side=tk.LEFT)
 
         self._height_label = tk.Label(
-            header, text="Altura: 0.0 m", font=("Segoe UI", 10)
+            header, text="Altura: 0.0 m", font=(theme.FONT_FAMILY, 10),
+            bg=theme.CARD_BG, fg=theme.TEXT_SECONDARY,
         )
         self._height_label.pack(side=tk.RIGHT)
 
@@ -81,7 +85,7 @@ class RocketView:
             height=self._CANVAS_HEIGHT,
             bg="#e8f0fb",
             highlightthickness=1,
-            highlightbackground="#c0c0c0",
+            highlightbackground=theme.CARD_BORDER,
         )
         self._canvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
@@ -234,7 +238,7 @@ class RocketView:
                    )
 
     def _update_badge(self, phase: SimulationPhase) -> None:
-        color, text, icon = _PHASE_STYLE.get(
-            phase, _PHASE_STYLE[SimulationPhase.IDLE]
-        )
-        self._phase_badge.config(text=f"{icon}  {text}", bg=color)
+        color = theme.PHASE_COLORS.get(phase.name, theme.PHASE_COLORS["IDLE"])
+        label = theme.PHASE_LABELS.get(phase.name, phase.name)
+        icon = _PHASE_ICONS.get(phase, "•")
+        self._phase_badge.config(text=f"{icon}  {label}", bg=color)

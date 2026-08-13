@@ -83,11 +83,22 @@ def simulate_phase3(state: SimulationState) -> SimulationState:
     state.potential_energy = mass * GRAVITY * state.height
     state.total_energy = state.kinetic_energy + state.potential_energy
 
-    state.history.append(state)
+    # NOTA (corrección Informe Final): se quitó el history.append() que
+    # estaba aquí. El controlador (simulation_controller._emit_state) ya
+    # registra el estado una vez por paso; duplicarlo aquí dejaba dos
+    # marcas de tiempo idénticas seguidas, y como esta misma función lee
+    # su Δt restando las dos últimas marcas del historial, esa resta daba
+    # 0 y la simulación se congelaba en su primer paso de descenso.
 
     if state.height <= 0.0:
         state.height = 0.0
-        state.phase = SimulationPhase.PHASE_3_DESCENT
+        # NOTA (corrección Informe Final): esto decía PHASE_3_DESCENT,
+        # o sea que al tocar altura 0 la fase "transicionaba" a la fase
+        # en la que ya estaba. Nunca se llegaba a PHASE_4_IMPACT, así que
+        # el controlador jamás llamaba a simulate_phase4 ni terminaba la
+        # simulación (quedaba repitiendo fase 3 con altura 0 hasta el
+        # límite de pasos de seguridad).
+        state.phase = SimulationPhase.PHASE_4_IMPACT
 
     return state
 
@@ -125,6 +136,7 @@ def simulate_phase4(state: SimulationState) -> SimulationState:
         print(f"[ALERTA] Fuerza de impacto ({state.impact_force:.2f} N) "
               f"supera el umbral F_IMP_MAX={F_IMP_MAX} N.")
 
-    state.history.append(state)
+    # NOTA (corrección Informe Final): se quitó el history.append()
+    # duplicado (ver misma nota en simulate_phase3).
     state.phase = SimulationPhase.PHASE_4_IMPACT
     return state
