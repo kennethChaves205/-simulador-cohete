@@ -85,6 +85,14 @@ class SimulationController:
         self._min_ui_refresh_interval = 1.0 / 12
         self._last_ui_refresh = 0.0
 
+        # Factor de aceleración de la REPRODUCCIÓN (no de la física: el
+        # Δt que se usa para integrar sigue siendo el configurado en la
+        # interfaz). Con 1x, un vuelo completo (~440s simulados con los
+        # valores por defecto) tarda ~7 minutos reales en verse, porque
+        # el paracaídas desciende muy lento (~6 m/s). Con 20x se ve
+        # completo en ~22s reales, sin perder precisión en el cálculo.
+        self._PLAYBACK_SPEED = 20.0
+
     # ------------------------------------------------------------------
     # API pública: controles de la simulación
     # ------------------------------------------------------------------
@@ -180,7 +188,19 @@ class SimulationController:
                 self._emit_state()
 
                 steps += 1
-                time.sleep(max(self._params.time_step, 0.001))
+                # NOTA (corrección Informe Final): antes esto dormía
+                # exactamente `time_step` segundos por paso, lo que hace
+                # que la simulación se reproduzca en tiempo real 1:1 (1s
+                # de reloj = 1s simulado) sin importar el Δt. La física
+                # es correcta, pero un descenso con paracaídas que dura
+                # ~440s simulados obliga a esperar ~440s reales (más de
+                # 7 minutos) para verlo completo: en la práctica, en ese
+                # tiempo solo se alcanza a ver el ascenso (rápido) y da
+                # la impresión de que "solo funciona el vuelo libre".
+                # PLAYBACK_SPEED acelera la REPRODUCCIÓN visual (dormir
+                # menos entre pasos) sin tocar el Δt usado para integrar
+                # la física, que sigue siendo tan preciso como antes.
+                time.sleep(max(self._params.time_step / self._PLAYBACK_SPEED, 0.001))
 
             if not self._stop_requested.is_set():
                 self._on_status_message("Simulación finalizada.")

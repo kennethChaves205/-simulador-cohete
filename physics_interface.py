@@ -106,6 +106,13 @@ def simulate_phase1(params: SimulationParameters) -> SimulationState:
         state.time += dt
         state.g_force = abs(state.acceleration) / g
 
+        # Energías (antes solo se calculaban en fase 3 -> las gráficas de
+        # Energía Cinética/Potencial/Total quedaban en 0 durante toda la
+        # propulsión y el vuelo libre, la mayor parte del vuelo).
+        state.kinetic_energy = 0.5 * state.current_mass * state.velocity ** 2
+        state.potential_energy = state.current_mass * g * state.height
+        state.total_energy = state.kinetic_energy + state.potential_energy
+
         # Registrar este paso en el historial para las gráficas
         state.history.append(state)
 
@@ -159,8 +166,23 @@ def simulate_phase2(state: SimulationState) -> SimulationState:
     state.height = max(new_height, 0.0)
     state.time += dt
 
-    # Registrar este paso
-    state.history.append(state)
+    # Energías (mismo motivo que en simulate_phase1: si no se calculan
+    # aquí, las gráficas de energía quedan planas durante todo el vuelo
+    # libre, que suele ser la fase más larga del ascenso).
+    state.kinetic_energy = 0.5 * state.current_mass * state.velocity ** 2
+    state.potential_energy = state.current_mass * g * state.height
+    state.total_energy = state.kinetic_energy + state.potential_energy
+
+    # NOTA (corrección Informe Final): NO se registra aquí en el historial.
+    # El controlador (simulation_controller._emit_state) es el único
+    # responsable de hacer state.history.append(state) para los pasos de
+    # fase 2, 3 y 4. Si esta función también lo hiciera, cada paso quedaría
+    # duplicado dos veces con el MISMO timestamp, y como simulate_phase2
+    # calcula su propio dt restando las dos últimas marcas de tiempo del
+    # historial (history_times[-1] - history_times[-2]), esa resta daría
+    # 0 desde el segundo paso en adelante: el tiempo, la altura y la
+    # velocidad quedarían congelados para siempre (justo el "no funciona,
+    # solo aparece el cohete y no hace nada" que se ve al iniciar).
 
     # Condición de transición a fase 3:
     #   - Apogeo: velocidad cruza de positiva a negativa (o llega a cero)
